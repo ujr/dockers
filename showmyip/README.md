@@ -20,6 +20,9 @@ in the foreground.
 
 - [Dockerfile](Dockerfile)
 
+Use `CMD` instead of `ENTRYPOINT` so we can easily override
+from the `docker run` command, e.g. with /bin/sh to get a shell.
+
 Create a *lighttpd.conf* file that does just about the bare
 minimum required to run Lighttpd and echo the remote IP
 upon all HTTP requests.
@@ -66,14 +69,15 @@ the container upon exit (`--rm`).
 For an **interactive session** with a container,
 use `-i` (keep stdin open) and `-t` (allocate a pseudo tty).
 The `--rm` option automatically removes the container upon exit.
-Here are a few examples using the plain `alpine` image.
-(The `showmyip` image will not work because of the `ENTRYPOINT`
-running lighttpd in the foreground.)
+Here are a few examples. (The command arguments to `docker run`
+will replace the `CMD` from the *Dockerfile*, that is, run the
+given command instead of lighttpd. If we used `ENTRYPOINT` in
+the *Dockerfile*, these arguments would be appended.)
 
 ```sh
-$ docker run alpine ifconfig          # check IP addrs
-$ docker run -it --rm alpine /bin/sh  # interactive shell session
-/ # exit                              # terminates container
+$ docker run showmyip ifconfig          # check IP addrs
+$ docker run -it --rm showmyip /bin/sh  # interactive shell session
+/ # exit                                # terminates container
 ```
 
 Type `Ctrl+P Ctrl+Q` to detach from a container;
@@ -125,6 +129,13 @@ run `lighttpd` "manually".
 - Tag names must be lowercase (`showmyip`, not `ShowMyIP`)
 - Prefer `COPY` over `ADD` in Dockerfiles,
   unless you need the extra features of `ADD`
+- `ENTRYPOINT` is the executable (and arguments) to run in the container.
+- `CMD` is the default executable (and arguments) to run in the container.
+  It will be replaced by arguments to the `docker run` command.
+- Prefer “exec from“ over “shell form” for `ENTRYPOINT` and `CMD`.
+- If both `ENTRYPOINT` and `CMD` are specified, the entrypoint is
+  the constant prefix and cmd the overridable suffix of the command
+  to run in the container.
 
 [alpine]: https://alpinelinux.org/
 [lighttpd]: https://www.lighttpd.net/

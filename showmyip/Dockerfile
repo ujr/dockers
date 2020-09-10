@@ -5,6 +5,4 @@ COPY content /var/www
 
 EXPOSE 80 443
 
-ENTRYPOINT ["/usr/sbin/lighttpd", "-D", "-f", "/var/www/lighttpd.conf"]
-CMD []
-
+CMD ["/usr/sbin/lighttpd", "-D", "-f", "/var/www/lighttpd.conf"]
