@@ -10,8 +10,7 @@ COPY content /xilab
 
 RUN cd /xilab && ./setup.sh
 
-VOLUME ["/mirror"]
-VOLUME ["/backup"]
+VOLUME ["/mirror", "/backup"]
 
 # For now, give me a shell (by default):
 CMD ["/bin/sh"]
