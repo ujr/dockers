@@ -22,14 +22,15 @@ backup system for Unix, Mac, Windows.
 ## Config
 
 ```text
-/mirror/
-/backup/dirvish/identity     (priv key for rsync/ssh)
-/backup/dirvish/master.conf  (copied to /etc/dirvish)
-/backup/VAULT/
-/backup/VAULT/IMAGE/
-/backup/VAULT/dirvish/default.conf
-/backup/VAULT/dirvish/client   (rsync host:/tree)
-/backup/VAULT/dirvish/exclude    (rsync excludes)
+/mirror/               (where the client mirrors live)
+/backup/dirvish/identity      (priv key for rsync/ssh)
+/backup/dirvish/master.conf   (copied to /etc/dirvish)
+/backup/dirvish/mirror.sh          (pre-server script)
+/backup/VAULT/                (snapshots for a client)
+/backup/VAULT/IMAGE/        (archived client snapshot)
+/backup/VAULT/dirvish/default.conf     (client config)
+/backup/VAULT/dirvish/client        (rsync host:/tree)
+/backup/VAULT/dirvish/exclude         (rsync excludes)
 ```
 
 - Append corresponding pub key (identity.pub) to client's
@@ -38,6 +39,65 @@ backup system for Unix, Mac, Windows.
   /backup/dirvish/master.conf
 - /backup/VAULT/dirvish/{client,exclude} are used to
   create the rsync mirror command
+
+## Usage
+
+```sh
+# Interactive shell (without mapping volumes):
+docker run -it --rm dirvish shell
+
+# Backup all vaults (must map volumes):
+docker run --rm -v /outer/backup:/backup \
+  -v /outer/mirror:/mirror dirvish runall
+
+# To mail the log to root:
+docker run --rm -e MAILTO=root -v ... dirvish runall
+```
+
+### Creating an SSH key pair
+
+The container will generate an SSH key pair if none
+is found. To provide your own, create the key pair,
+place the private key in */backup/dirvish/identity*,
+and append the public key to all clients's
+*/root/.ssh/authorized_keys* file.
+
+A key pair can be **ssh-keygen**. When called without
+arguments, parameters will be queried interactively;
+alternatively pass appropriate options. Be sure to
+**not** use a passphrase, so that rsync/ssh can use
+the key unsupervised.
+
+### Adding a Client
+
+Append the public key */backup/dirvish/identity.pub*
+to the client's */root/.ssh/authorized_keys* file.
+
+Within the container, do the following:
+
+```sh
+ssh -i /backup/dirvish/identity HOST # test ssh, then exit
+mkdir -p /backup/VAULT/dirvish
+echo "HOST:/PATH" > /backup/VAULT/dirvish/client
+edit /backup/VAULT/dirvish/exclude         # any excludes
+/xilab/entry.sh setup         # creates default.conf etc.
+dirvish --init --vault VAULT       # create initial image
+```
+
+### Removing a Client
+
+To disable backups (but keep config and data):
+
+- remove VAULT's the Runall entry in */backup/dirvish/master.conf*
+
+To delete VAULT's data and config:
+
+- remove VAULT's Runall entry in */backup/dirvish/master.conf*
+- delete */mirror/VAULT*
+- delete */backup/VAULT*
+
+Both can be done from within the container,
+or from the host computer (adjust paths).
 
 ## Installing Dirvish
 
@@ -49,6 +109,18 @@ the final executable scripts from a few pieces.
 
 We want this fully automated and thus provide our own
 *setup.sh* script that has our parameter choices hardcoded.
+
+A subtle problem: dirvish creates the index of an image
+with `find $destree -ls` but busybox does not support the
+`-ls` option. The aforementioned *setup.sh* script substitutes
+`-exec ls -dils {} \;` for `-ls`, that is, we direct `find`
+to invoke `ls` for each entry. Slow, but works. Alternatively,
+we could simply remove the `-ls` option, but doing so would
+probably break `dirvish-locate`.
+
+While at it, fix a minor bug in `dirvish-locate`, where
+`gzip` is instructed to uncompress file `index` if file
+`index.gz` exists.
 
 ## Miscellaneous
 

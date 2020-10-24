@@ -21,6 +21,11 @@ HEADER="#!$PERL
 
 cd dirvish-1.2.1
 
+# BusyBox's find has no -ls option: substitute using exec ls:
+sed -i -e '/\bfind\b/s/-ls/-exec ls -dils {} \\\\;/' dirvish.pl
+# While at it, fix a minor bug in dirvish-locate:
+sed -i -e '/"$imdir\/index\.gz"/s:/index|";:/index.gz|";:' dirvish-locate.pl
+
 for f in $TOOLS
 do
     echo "$HEADER" > $f
@@ -49,25 +54,12 @@ for f in $TOOLS; do rm $f; done
 
 cd ..
 
-echo "*** Creating default config"
-
-# Copying our default master config file:
-install -m 644 -D -t "$CONFDIR" master.conf
-
-cat <<EOT > default.conf
-# Vault default config for server1
-client: $HOSTNAME
-tree: /mirror/server1
-index: gzip
-log: gzip
-EOT
-install -m 644 -D -t /backup/server1/dirvish default.conf
-
-cat <<EOT > default.conf
-# Vault default config for server2
-client: $HOSTNAME
-tree: /mirror/server2
-index: gzip
-log: gzip
-EOT
-install -m 644 -D -t /backup/server2/dirvish default.conf
+echo "*** Configuration"
+mv profile /root/.shinit # assumes ENV=/root/.shinit
+source config.sh
+echo "rsh: $RSYNCRSH" >> /xilab/master.conf
+# embed config.sh into scripts instead of sourcing:
+SED="/source.*xilab.*config.sh/ {#r config.sh#d#}"
+echo "$SED" | tr '#' '\n' | sed -i -f - mirror.sh
+echo "$SED" | tr '#' '\n' | sed -i -f - entry.sh
+install -m 644 -D -t /etc/ssmtp /xilab/ssmtp.conf

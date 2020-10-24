@@ -4,7 +4,9 @@ all: build
 
 build:
 	docker build -t $(IMAGE) .
-	#docker build -t $(IMAGE) --no-cache .
+
+rebuild:
+	docker build -t $(IMAGE) --no-cache .
 
 shell:
 	docker run -it --rm \

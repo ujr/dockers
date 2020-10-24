@@ -1,14 +1,8 @@
 #!/bin/sh
 
-MIRROR="/mirror"
-BANK="/backup"
+source /xilab/config.sh
 
-PRIVKEY="$BANK/dirvish/identity"
-MASTERCONF="$BANK/dirvish/master.conf"
-LOGFILE="$BANK/dirvish/latest.log"
-
-RSYNCOPTS="-rltH --delete -pgo -D --numeric-ids" # --stats
-RSYNCRSH="ssh -i '$PRIVKEY' -o StrictHostKeyChecking=no" # -o UserKnownHostsFile=/dev/null
+MIRRORSCRIPT="/backup/dirvish/mirror.sh"
 
 showhelp() {
   cat << EOT
@@ -16,58 +10,68 @@ This is the entrypoint script for our dirvish container.
 Usage: $0 command
 Commands:
   help      Show this help text and quit
-  init      Default ssh key and master.conf
-  runall    Mirror and archive all vaults
+  setup     Generate an ssh key and a default master.conf
+  runall    Mirror and archive all vaults, expire old images
   shell     Drop into an interactive shell
 EOT
 }
 
-init() {
-  test -f "$PRIVKEY" || keygen
-  test -f "$MASTERCONF" || cp /xilab/master.conf "$MASTERCONF"
-  eachvault initvault
+setup() {
+  if test -f "$SSHKEY"
+  then echo "Keeping $SSHKEY"
+  else keygen
+  fi
+
+  if test -f "$MASTERCONF"
+  then echo "Keeping $MASTERCONF"
+  else cp /xilab/master.conf "$MASTERCONF"
+  fi
+
+  if test -f "$MIRRORSCRIPT"
+  then echo "Keeping $MIRRORSCRIPT"
+  else cp /xilab/mirror.sh "$MIRRORSCRIPT"
+  fi
+
+  test -x "$MIRRORSCRIPT" || chmod a+x "$MIRRORSCRIPT"
+
+  eachvault setupvault
 }
 
 runall() {
-  eachvault initvault
+  date
+  eachvault setupvault
   cp "$MASTERCONF" /etc/dirvish
-  eachvault mirror
-  # TODO look for no images and do dirvish --init
   dirvish-runall
   dirvish-expire
   df -h "$BANK"
 }
 
-initvault() {
+setupvault() {
   local VAULT="$1"
   local VAULTCONF="$BANK/$VAULT/dirvish/default.conf"
   local CLIENT="/^[ \t]*client:.*/s//client: $HOSTNAME/"
   local TREE="/^[ \t]*tree:.*/s!!tree: $MIRROR/$VAULT!"
   mkdir -p "$BANK/$VAULT/dirvish"
-  mkdir -p "$MIRROR/$VAULT"
   # Create vault config file (if missing):
   test -f "$VAULTCONF" || sed -e "$TREE" /xilab/default.conf > "$VAULTCONF"
   sed -i -e "$CLIENT" "$VAULTCONF"
   # Add VAULT to Runall in master.conf (if missing):
   sed -n -e "/^[ \t]*Runall:/,/^[ \t]*$/p" "$MASTERCONF" | \
     grep -q "\b$VAULT\b" || \
-      sed -i -e "/^[ \t]*Runall:/a\    $VAULT 00:00" "$MASTERCONF"
-}
-
-mirror() {
-  local VAULT="$1"
-  local TARGET="$MIRROR/$VAULT"
-  local CLIENT=$(head -1 $BANK/$VAULT/dirvish/client)
-  local EXCLUDEFILE=$BANK/$VAULT/dirvish/exclude
-  local OPTS="$RSYNCOPTS"
-  test -f "$EXCLUDEFILE" && OPTS="$OPTS --exclude-from=$EXCLUDEFILE"
-  mkdir -p "$TARGET"
-  rsync $OPTS -e "$RSYNCRSH" "$CLIENT" "$TARGET"
+      sed -i -e "/^[ \t]*Runall:/a\    $VAULT" "$MASTERCONF"
+  ## If no images yet, do the required --init now:
+  #hasimage $VAULT || dirvish --init --vault $VAULT
 }
 
 keygen() {
-  echo "Creating SSH key pair in $PRIVKEY"
-  ssh-keygen -t rsa -C root@$(hostname) -N "" -f "$PRIVKEY"
+  echo "Creating SSH key pair in $SSHKEY"
+  ssh-keygen -t rsa -C root@$(hostname) -N "" -f "$SSHKEY"
+}
+
+# return 0 iff vault $1 has at least one image
+hasimage() {
+  local VAULT="$1"
+  (cd "$BANK/$VAULT" && ls */summary) > /dev/null 2>&1
 }
 
 # invoke `$1 VAULT` for each VAULT in BANK
@@ -82,6 +86,16 @@ eachvault() {
 # Run $* in a group and tee all stdout/stderr to $LOGFILE
 logged() {
   { $*; } 2>&1 | tee "$LOGFILE"
+
+  test -n "$MAILTO" && {
+    echo "From: root@$HOSTNAME"
+    echo "Date: $(date -R)"
+    echo "Subject: Dirvish at $HOSTNAME"
+    echo "" # empty line
+    cat "$LOGFILE"
+    echo "" # empty line
+    # TODO zcat each vault's latest log.gz?
+  } | ssmtp "$MAILTO"
 }
 
 while :; do
@@ -107,8 +121,10 @@ while :; do
 done
 
 CMD=$1
-test -z "$CMD" && CMD=help
-shift
+if test -z "$CMD"
+then CMD=help
+else shift
+fi
 
 if [ -n "$1" ]; then
   echo "$0: Too many arguments"
@@ -117,8 +133,8 @@ if [ -n "$1" ]; then
 fi
 
 case $CMD in
-  init)
-    init
+  setup)
+    setup
   ;;
   runall)
     logged runall
