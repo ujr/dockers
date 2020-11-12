@@ -65,6 +65,13 @@ Mail notification is only sent if the `MAILTO` env var is
 set; to do so, use the `-e MAILTO=root` (or similar)
 argument to `docker run`.
 
+Use `-e MAILHUB=mail.example.com` (or similar) to specify
+the mail server, and `-e MAILDOMAIN=example.com` (or similar)
+to specify where the mail seems to come from. Alternatively,
+create an *ssmtp.conf* file in */backup/dirvish/*, which
+will take precedence over these environment variables, but
+you still have to say `-e MAILTO=user`.
+
 Docker generates host names for its containers. To override,
 use the `-h hostname` argument to `docker run`.
 
@@ -106,13 +113,13 @@ docker run --rm -v /outer/backup:/backup \
 docker run --rm -v /outer/backup:/backup \
   -v /outer/mirror:/mirror dirvish runall
 
-# To mail the log to root:
-docker run --rm -h dirvish.example.com -e MAILTO=root \
-  -v ... dirvish runall
-
 # Interactive shell (without mapping volumes):
 docker run -it --rm dirvish shell
 ```
+
+For mail notification, pass the environment variable
+`MAILTO=root` (choose recipient) into the container
+(and make sure mail is configured -- see above).
 
 You may want to call `runall` nightly from cron.
 

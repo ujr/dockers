@@ -46,7 +46,6 @@ setup() {
 runall() {
   date
   eachvault setupvault
-  test -f "$SSMTPCONF" && cp -f "$SSMTPCONF" /etc/ssmtp
   test -f "$MASTERCONF" && cp -f "$MASTERCONF" /etc/dirvish
   dirvish-runall
   dirvish-expire
@@ -118,7 +117,7 @@ latestimage() {
 
 # Run $* in a group and tee all stdout/stderr to $LOGFILE
 logged() {
-  { $*; } 2>&1 | tee "$LOGFILE"
+  { $*; echo "MAILTO=$MAILTO, MAILHUB=$MAILHUB"; } 2>&1 | tee "$LOGFILE"
 
   test -n "$MAILTO" && {
     echo "From: root@$HOSTNAME"
@@ -126,7 +125,19 @@ logged() {
     echo "Subject: Dirvish at $HOSTNAME"
     echo "" # empty line
     cat "$LOGFILE"
-  } | ssmtp "$MAILTO" || true # avoid non-zero return
+  } | mailto "$MAILTO" || true # avoid non-zero return
+}
+
+mailto() {
+  if test -f "$SSMTPCONF"
+  then cp -f "$SSMTPCONF" /etc/ssmtp/ssmtp.conf
+  else sed -i -f - /etc/ssmtp/ssmtp.conf << EOT
+/^[ \t]*mailhub[ \t]*=.*$/s//mailhub=${MAILHUB:-mail.example.com}/
+/^[ \t]*rewriteDomain[ \t]*=.*$/s//rewriteDomain=${MAILDOMAIN}/
+/^[ \t]*hostname[ \t]*=.*$/s//hostname=$(hostname)/
+EOT
+  fi
+  ssmtp "$1"
 }
 
 while :; do
