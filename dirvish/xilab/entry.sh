@@ -10,7 +10,8 @@ This is the entrypoint script for our dirvish container.
 Usage: $0 command
 Commands:
   help      Show this help text and quit
-  setup     Generate an ssh key and a default master.conf
+  setup     Generate an ssh key and default config files
+  init      Create initial images for new vaults
   runall    Mirror and archive all vaults, expire old images
   shell     Drop into an interactive shell
 EOT
@@ -27,6 +28,11 @@ setup() {
   else cp /xilab/master.conf "$MASTERCONF"
   fi
 
+  if test -f "$SSMTPCONF"
+  then echo "Keeping $SSMTPCONF"
+  else cp /xilab/ssmtp.conf "$SSMTPCONF"
+  fi
+
   if test -f "$MIRRORSCRIPT"
   then echo "Keeping $MIRRORSCRIPT"
   else cp /xilab/mirror.sh "$MIRRORSCRIPT"
@@ -40,10 +46,21 @@ setup() {
 runall() {
   date
   eachvault setupvault
-  cp "$MASTERCONF" /etc/dirvish
+  test -f "$SSMTPCONF" && cp -f "$SSMTPCONF" /etc/ssmtp
+  test -f "$MASTERCONF" && cp -f "$MASTERCONF" /etc/dirvish
   dirvish-runall
   dirvish-expire
   df -h "$BANK"
+  eachvault dumplog
+}
+
+init() {
+  eachvault initvault
+}
+
+initvault() {
+  local VAULT="$1"
+  hasimage "$VAULT" || dirvish --init --vault "$VAULT"
 }
 
 setupvault() {
@@ -59,8 +76,16 @@ setupvault() {
   sed -n -e "/^[ \t]*Runall:/,/^[ \t]*$/p" "$MASTERCONF" | \
     grep -q "\b$VAULT\b" || \
       sed -i -e "/^[ \t]*Runall:/a\    $VAULT" "$MASTERCONF"
-  ## If no images yet, do the required --init now:
-  #hasimage $VAULT || dirvish --init --vault $VAULT
+}
+
+dumplog() {
+  local VAULT="$1"
+  local IMAGE=$(latestimage "$VAULT")
+  local LOGFILE="$BANK/$VAULT/$IMAGE/log"
+  echo "" # blank line
+  echo "## $VAULT log"
+  test -f "$LOGFILE" && cat "$LOGFILE"
+  test -f "$LOGFILE.gz" && zcat "$LOGFILE.gz"
 }
 
 keygen() {
@@ -76,11 +101,19 @@ hasimage() {
 
 # invoke `$1 VAULT` for each VAULT in BANK
 eachvault() {
-  find "$BANK" -mindepth 2 -maxdepth 2 -type d -path "$BANK/*/dirvish" | while read P
+  local OPTS="-mindepth 2 -maxdepth 2 -type d"
+  find "$BANK" $OPTS -path "$BANK/*/dirvish" | while read P
   do
     VAULT=$(basename ${P%/dirvish})
     $1 "$VAULT"
   done
+}
+
+# print name of latest image in vault $1
+latestimage() {
+  local VAULT="$1"
+  local IMAGE=$(ls -t -F "$BANK/$VAULT" | grep -v '^dirvish' | grep '/$' | head -1)
+  echo ${IMAGE%/}
 }
 
 # Run $* in a group and tee all stdout/stderr to $LOGFILE
@@ -93,9 +126,7 @@ logged() {
     echo "Subject: Dirvish at $HOSTNAME"
     echo "" # empty line
     cat "$LOGFILE"
-    echo "" # empty line
-    # TODO zcat each vault's latest log.gz?
-  } | ssmtp "$MAILTO"
+  } | ssmtp "$MAILTO" || true # avoid non-zero return
 }
 
 while :; do
@@ -135,6 +166,9 @@ fi
 case $CMD in
   setup)
     setup
+  ;;
+  init)
+    init
   ;;
   runall)
     logged runall

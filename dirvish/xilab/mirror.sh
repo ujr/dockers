@@ -5,7 +5,11 @@ source /xilab/config.sh
 
 # Dirvish invokes its {pre,post}-{client,server} scripts with env vars:
 # DIRVISH_SERVER, DIRVISH_CLIENT, DIRVISH_SRC, DIRVISH_DEST, DIRVISH_IMAGE
-echo "server=$DIRVISH_SERVER client=$DIRVISH_CLIENT src=$DIRVISH_SRC dest=$DIRVISH_DEST image=$DIRVISH_IMAGE"
+#echo "server=$DIRVISH_SERVER"
+#echo "client=$DIRVISH_CLIENT"
+#echo "src=$DIRVISH_SRC"
+#echo "dest=$DIRVISH_DEST"
+#echo "image=$DIRVISH_IMAGE"
 
 IMAGEPATH=${DIRVISH_DEST%/tree}
 IMAGE=$(basename "$IMAGEPATH")
@@ -25,6 +29,6 @@ mirror() {
   rsync $OPTS -e "$RSYNCRSH" "$CLIENT" "$TARGET"
 }
 
-echo "BANK=$BANK, VAULT=$VAULT, IMAGE=$IMAGE"
+echo "Mirror stage for BANK=$BANK, VAULT=$VAULT, IMAGE=$IMAGE"
 
 mirror "$VAULT"

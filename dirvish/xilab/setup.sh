@@ -55,11 +55,13 @@ for f in $TOOLS; do rm $f; done
 cd ..
 
 echo "*** Configuration"
-mv profile /root/.shinit # assumes ENV=/root/.shinit
+mv profile /root/.profile
 source config.sh
 echo "rsh: $RSYNCRSH" >> /xilab/master.conf
+
 # embed config.sh into scripts instead of sourcing:
 SED="/source.*xilab.*config.sh/ {#r config.sh#d#}"
 echo "$SED" | tr '#' '\n' | sed -i -f - mirror.sh
 echo "$SED" | tr '#' '\n' | sed -i -f - entry.sh
+# Install ssmtp(8) config:
 install -m 644 -D -t /etc/ssmtp /xilab/ssmtp.conf

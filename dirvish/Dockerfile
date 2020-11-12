@@ -10,7 +10,9 @@ COPY xilab /xilab
 
 RUN cd /xilab && ./setup.sh
 
-ENV ENV=/root/.shinit
+ENV MAILTO=admin@example.com
+ENV MAILHUB=mail.example.com
+ENV MAILDOMAIN=example.com
 
 VOLUME ["/mirror", "/backup"]
 
