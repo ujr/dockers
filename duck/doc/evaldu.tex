@@ -1,0 +1,223 @@
+% Dokumentation zu "evaldu" (disk usage evaluation)
+% ujr/2008-02-26 for xilab
+
+\magnification=\magstep1
+\font\titlefont=cmbx12 at 16pt
+\font\sectionfont=cmbx12
+\def\section#1\par{\bigbreak
+  \leftline{\sectionfont #1}%
+  \nobreak\medskip\noindent}
+
+% Verbatim listing...
+\chardef\other=12
+\def\ttverbatim{\begingroup\def\do##1{\catcode`##1=\other}%
+ \dospecials \catcode`\|=\other \obeyspaces \obeylines \tt}
+{\obeyspaces\gdef {\ }} % \obeyspaces now gives \ , not \space
+
+\catcode`\|=\active
+\newskip\ttglue \ttglue=.5em plus.25em minus.15em
+{\obeylines\gdef|{\ttverbatim\spaceskip=\ttglue%
+ \let^^M=\ \let|=\endgroup}}
+
+\font\ninett=cmtt9
+\def\begincode{\medskip
+ \ttverbatim \let\tt=\ninett
+ \baselineskip=10pt plus .2pt minus .2pt
+ \catcode`\|=\other \catcode`\\=0
+ \def\\{\char"5C\relax}% backslashes must be escaped
+ \let\par=\endgraf \rightskip=-5pt}
+\def\endcode{\par\endgroup\medbreak\noindent}
+
+
+\topskip 4pc
+\centerline{Urs-\kern-.2ex Jakob R\"uetschi, Xilab}
+\bigskip
+\centerline{\titlefont Disk Usage Accounting}
+\smallskip
+\centerline{\bf A Simple Solution for Linux Systems}
+\vskip 2pc
+
+\noindent Xilab bietet gegen Entgelt Speicherplatz im Internet an.
+Das Entgelt des Kunden richtet sich nach dem tats\"achlich belegten
+Speicherplatz auf den Xilab-Servern. Die Belegung muss daher f\"ur
+jeden Kunden regelm\"assig erhoben, periodisch konsolidiert und in
+Rechnung gestellt werden.
+
+\section Funktionsweise
+
+Die Disk Usage jedes Kunden wird t\"aglich erhoben und in einem Logfile
+abgelegt. Die Speicherbelegung wird dabei auf ganze MegaBytes gerundet.
+Bei der Rechnungstellung wird der durchschnittliche Speicherbedarf
+pro Monat ausgewiesen und verrechnet. Der Durchschnitt wird mit der
+exakten Anzahl Tage (28, 29, 30 oder 31) des Monates berechnet.
+
+Die Erhebung des belegten Speicherplatzes erfolgt automatisch
+durch den Server. Der Durchschnittswert pro Monat wird durch
+ein Skript vorgenommen, welches manuell gestartet wird. Sein
+Output wird per Copy/Paste in die Rechnung (oder in ein Excel Sheet)
+eingef\"ugt.
+
+\section Messung der Disk Usage
+
+Idealerweise wird ein File System mit Quota-Support verwendet, weil
+dieses die Buch\-f\"uhrung der durch einen User und/oder eine Gruppe
+belegten Speicherplatzes automatisch vornimmt.
+%
+Steht kein solches File System zur Verf\"ugung, kann das Standard
+Unix Tool {\bf du}(1) verwendet werden, welches von einem oder
+mehreren Startpunkten aus rekursiv durch den Verzeichnisbaum geht
+und den belegten Disk Space aufsummiert.
+
+In beiden F\"allen ist der t\"agliche Wert zusammen mit dem
+Datum in ein Logfile zu schreiben. Bei der Verwendung von
+{\bf du}(1) ist zu bedenken, dass das eine ``teure'' Operation
+ist und entsprechend viel Zeit beanspruchen kann.
+
+\section Implementation
+
+Das Shell Skript {\tt log-disk-usage.sh} wird jede Nacht
+und f\"ur jedes Kundenverzeichnis {\it /pfad/kunde\/} durch
+den {\bf cron}-Dienst aufgerufen wird. Das Kundenverzeichnis
+wird dem Skript als Parameter \"ubergeben. Die gefundene
+Disk Usage wird zusammen mit einer Datumsangabe an die Datei
+{\it /pfad/kunde\tt.du} angeh\"angt.
+\smallskip
+\item{} Skriptaufruf: {\tt /root/bin/log-disk-usage.sh} {\it /pfad/kunde}
+\item{} Speicherort des Logfiles: {\it /pfad/kunde\tt.du}
+\item{} Zeilenformat im Logfile: {\it yyyy mm dd Mbytes}
+\smallskip
+\noindent Die {\tt/\it dirname\tt.du}-Dateien wachsen best\"andig
+und werden (gegenw\"artig) nicht rotiert.
+
+Vor der Rechnungstellung werden die {\tt .du}-Dateien
+mit dem Skript {\tt eval-du-log.awk} konsolidiert, d.h., die
+t\"aglichen Werte zu einem Wert pro Monat aggregiert.
+\smallskip
+\item{} Skriptaufruf: {\tt /root/bin/eval-du-log.awk}
+ [{\tt free=$N$}] [{\tt cost=$K$}] {\it /pfad/kunde\tt.du}
+\smallskip
+\noindent Dabei ist {\tt free=$N$} die Anzahl MBytes, die im
+Grundpreis eingeschlossen sind (default: $N=0$) und {\tt cost=$K$}
+der Preis pro MByte (default: $K=1$).
+Der Output ist eine Zeile pro Monat im Format
+``{\it yyyy Monat Mbytes Cost},'' wobei {\it Mbytes\/} auf drei Stellen
+nach dem Komma und {\it Cost\/} auf zwei Stellen ausgegeben wird.
+Beispiel: 
+\begincode
+2007 Dezember 58.800 58.80
+2008 Januar 120.000 120.00
+2008 Februar 570.167 570.17
+\endcode
+Dieser Output kann per Copy/Paste in eine Tabelle oder direkt
+in das Rechnungsdokument bef\"ordert werden.
+
+\section Das Logging-Skript
+
+Das Logging ist als einfaches Shell-Skript {\tt log-disk-usage.sh}
+realisiert:
+\begincode
+#!/bin/sh
+\smallskip
+# Usage: log-disk-usage.sh <dir>
+# To be called regularly by cron.
+\smallskip
+target="$1" || exit 127
+log="${target%/}.du"
+today=`date '+%Y %m %d'` || exit 1
+set -- `du -s "$target"` && blocks=$1 || exit 1
+echo $today $(((blocks+512)/1024)) >> "$log"
+\endcode
+Auf der letzten Zeile wird die Anzahl Disk Blocks (Linux: 1024 Bytes)
+von {\bf du}(1) auf MBytes gerundet.
+Hier ein Beispiel des generierten Logfiles:
+\begincode
+\indent\vdots
+2008 01 28 68
+2008 01 29 73
+2008 01 30 72
+2008 01 31 72
+2008 02 01 123
+2008 02 02 125
+2008 02 03 125
+2008 02 04 144
+\indent\vdots
+\endcode
+
+\section Das Konsolidierungs-Skript
+
+Die Konsolidierung zur durchschnittlichen monatlichen Belegung
+und die Bestimmung des Preises daf\"ur erledigt das AWK-Skript
+{\tt eval-du-log.awk}:
+\begincode
+#!/usr/bin/awk -f
+\smallskip
+# Evaluate a <year> <month> <mday> <xbytes> disk usage log.
+# Usage: awk -f eval-du-log [free=N] [cost=K] <logfile>
+\medskip
+BEGIN { if (!cost) cost = 1
+  mon["01"] = "Januar"; mon["02"] = "Februar"; mon["03"] = "Maerz"
+  mon["04"] = "April"; mon["05"] = "Mai"; mon["06"] = "Juni"
+  mon["07"] = "Juli"; mon["08"] = "August"; mon["09"] = "September"
+  mon[10] = "Oktober"; mon[11] = "November"; mon[12] = "Dezember"
+  print "#year month load cost"
+}
+\medskip
+{ mbytes = $4
+  year = $1; month = $2
+  tot[year,month] += mbytes
+  cnt[year,month] += 1
+}
+\medskip
+END { for (s in tot) A[++n] = s
+  isort(A, n) # sort by year then month
+  for (i = 1; i <= n; i++) {
+    split(A[i], a, SUBSEP)
+    y = a[1]; m = a[2]
+    d = tot[y,m]/cnt[y,m]
+    c = (d - free) * cost
+    printf "%s %s %.03f %.02f\\n", y, mon[m], d, c
+  }
+}
+\medskip
+# Insertion sort of A[1..n] (from AWK man page)
+function isort(A, n,   i, j, hold)
+{
+  for (i = 2; i <= n; i++)
+  {
+    hold = A[j=i]
+    while (A[j-1] > hold)
+    { j--; A[j+1] = A[j] }
+    A[j] = hold
+  }
+  # sentinel A[0] = "" will be created if needed
+}
+\endcode
+Im BEGIN-Block wird der Default-Wert f\"ur die {\it cost}-Variable
+explizit gesetzt (weil nicht~0) und ein Array aufgebaut, der von
+Monatsnummern (mit f\"uhrender Null!) nach Monatsnamen \"ubersetzt.
+
+Der n\"achste Block wird f\"ur jede Zeile des Inputs ausgef\"uhrt.
+Er aktualisiert Totalwert und Anzahl in zwei assoziativen Arrays,
+die mit Jahr und Monat (mit f\"uhrender Null!) indiziert werden.
+
+Der END-Block kopiert den assoziativen Array {\it tot\/}
+in den Integer-indizierten Array~$A$, welcher dann sortiert und
+schliesslich ausgegeben wird. Die Sortier-Routine wurde der
+Manual Page zu {\bf mawk} entnommen.
+
+\section Hinweise
+
+Wenn in einem Logfile Eintr\"age fehlen weil das Logging-Skript
+nicht ausgef\"uhrt wurde (z.B. weil der Rechner nicht lief), dann
+wird bloss \"uber die vorhandenen Eintr\"age gemittelt, was immer
+noch zu einem g\"ultigen Resultat f\"uhrt.
+\medskip
+\noindent
+Hier vorgestellt wurde eine einfache L\"osung f\"ur ein einfaches
+Problem. Sollte das Problem gr\"osser werden (mehr Kunden!), muss
+diese Abrechnungsl\"osung \"uberdacht und angepasst werden.
+
+\nopagenumbers\vskip 1pc plus 1filll
+\centerline{Created 2008-02-26 by Urs-\kern-.2ex Jakob R\"uetschi}
+\centerline{Copyright 2008 by Xilab. All rights reserved.}
+\bye
