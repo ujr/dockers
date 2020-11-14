@@ -36,6 +36,10 @@ backup system for Unix, Mac, Windows.
 
 ## Configuration
 
+The only build-time configuration is the `TIMEZONE` build argument
+that defaults to `Europe/Zurich` but can be changed like this:
+`docker build --build-arg TIMEZONE=Europe/London -t dirvish .`
+
 Container configuration is through files in a mapped volume
 and through environment variables and arguments.
 
