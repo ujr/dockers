@@ -77,7 +77,8 @@ will take precedence over these environment variables, but
 you still have to say `-e MAILTO=user`.
 
 Docker generates host names for its containers. To override,
-use the `-h hostname` argument to `docker run`.
+use the `-h hostname` argument to `docker run`, for example,
+`docker run -h $(hostname) ... dirvish ...`.
 
 Per vault config:
 
@@ -103,10 +104,10 @@ for *rsync*.
 
 ```sh
 # Show short help text:
-docker run -it --rm dirvish help
+docker run --rm dirvish help
 
 # Generate key pair (if missing) and default configs:
-docker run -t --rm -v /outer/backup:/backup \
+docker run --rm -v /outer/backup:/backup \
   -v /outer/mirror:/mirror dirvish setup
 
 # Create missing initial images:
@@ -117,8 +118,8 @@ docker run --rm -v /outer/backup:/backup \
 docker run --rm -v /outer/backup:/backup \
   -v /outer/mirror:/mirror dirvish runall
 
-# Interactive shell (without mapping volumes):
-docker run -it --rm dirvish shell
+# Drop into an interactive shell:
+docker run -it --rm -v ... dirvish shell
 ```
 
 For mail notification, pass the environment variable
@@ -152,9 +153,9 @@ Within the container, do the following:
 ssh -i /backup/dirvish/identity HOST # test ssh, then exit
 mkdir -p /backup/VAULT/dirvish
 echo "HOST:/PATH" > /backup/VAULT/dirvish/client
-edit /backup/VAULT/dirvish/exclude         # any excludes
-/xilab/entry.sh setup         # creates default.conf etc.
-dirvish --init --vault VAULT       # create initial image
+edit /backup/VAULT/dirvish/exclude          # any excludes
+/xilab/entry.sh setup          # creates default.conf etc.
+dirvish --init --vault VAULT        # create initial image
 ```
 
 ### Removing a Client

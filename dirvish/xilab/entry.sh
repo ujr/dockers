@@ -25,17 +25,17 @@ setup() {
 
   if test -f "$MASTERCONF"
   then echo "Keeping $MASTERCONF"
-  else cp /xilab/master.conf "$MASTERCONF"
+  else mkdir -p "${MASTERCONF%/*}" && cp /xilab/master.conf "$MASTERCONF"
   fi
 
   if test -f "$SSMTPCONF"
   then echo "Keeping $SSMTPCONF"
-  else cp /xilab/ssmtp.conf "$SSMTPCONF"
+  else mkdir -p "${SSMTPCONF%/*}" && cp /xilab/ssmtp.conf "$SSMTPCONF"
   fi
 
   if test -f "$MIRRORSCRIPT"
   then echo "Keeping $MIRRORSCRIPT"
-  else cp /xilab/mirror.sh "$MIRRORSCRIPT"
+  else mkdir -p "${MIRRORSCRIPT%/*}" && cp /xilab/mirror.sh "$MIRRORSCRIPT"
   fi
 
   test -x "$MIRRORSCRIPT" || chmod a+x "$MIRRORSCRIPT"
@@ -45,15 +45,17 @@ setup() {
 
 runall() {
   date
-  eachvault setupvault
   test -f "$MASTERCONF" && cp -f "$MASTERCONF" /etc/dirvish
+  eachvault setupvault
   dirvish-runall
   dirvish-expire
-  df -h "$BANK"
+  echo "Disk usage at $(hostname):"
+  df -h "$BANK"  # -h is not POSIX but works with BusyBox
   eachvault dumplog
 }
 
 init() {
+  test -f "$MASTERCONF" && cp -f "$MASTERCONF" /etc/dirvish
   eachvault initvault
 }
 
@@ -89,6 +91,7 @@ dumplog() {
 
 keygen() {
   echo "Creating SSH key pair in $SSHKEY"
+  mkdir -p "${SSHKEY%/*}" # create parent directory
   ssh-keygen -t rsa -C root@$(hostname) -N "" -f "$SSHKEY"
 }
 
