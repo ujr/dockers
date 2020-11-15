@@ -1,12 +1,11 @@
 #!/bin/sh
 # You may want a script like this one to simplify invocation
 # of the container. Call it with argument 'runall' from cron
-# for nightly backups. Review the variables and note that an
-# ssmtp.conf in $BACKUPDIR/dirvish overrides the variables.
+# for nightly backups. Review the variables. Note that mail
+# notifications need both MAILTO to be set and an ssmtp.conf
+# file in BACKUPDIR/dirvish.
 
 MAILTO=root
-MAILHUB=mail.example.com
-MAILDOMAIN=example.com
 
 MIRRORDIR=/path/to/mirror
 BACKUPDIR=/path/to/backup
@@ -16,8 +15,7 @@ BACKUPDIR=/path/to/backup
 OPTS=""
 test "$1" = "shell" && OPTS="$OPTS -it"
 
-/bin/docker run --rm $OPTS -h "$HOSTNAME" -e "MAILTO=$MAILTO" \
-  -e "MAILHUB=$MAILHUB" -e "MAILDOMAIN=$MAILDOMAIN" \
+docker run --rm $OPTS -h "$HOSTNAME" -e "MAILTO=$MAILTO" \
   --mount "type=bind,source=$MIRRORDIR,target=/mirror" \
   --mount "type=bind,source=$BACKUPDIR,target=/backup" \
   dirvish $*

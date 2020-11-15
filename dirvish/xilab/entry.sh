@@ -2,8 +2,6 @@
 
 source /xilab/config.sh
 
-MIRRORSCRIPT="/backup/dirvish/mirror.sh"
-
 showhelp() {
   cat << EOT
 This is the entrypoint script for our dirvish container.
@@ -43,15 +41,21 @@ setup() {
   eachvault setupvault
 }
 
-runall() {
-  date
-  test -f "$MASTERCONF" && cp -f "$MASTERCONF" /etc/dirvish
-  eachvault setupvault
-  dirvish-runall
-  dirvish-expire
-  echo "Disk usage at $(hostname):"
-  df -h "$BANK"  # -h is not POSIX but works with BusyBox
-  eachvault dumplog
+setupvault() {
+  local VAULT="$1"
+  local VAULTCONF="$BANK/$VAULT/dirvish/default.conf"
+  mkdir -p "$BANK/$VAULT/dirvish"
+  # Create vault config file (if missing):
+  test -f "$VAULTCONF" || cp -f /xilab/default.conf "$VAULTCONF"
+  # Vault with mirroring: update client & tree settings:
+  grep -q "^mirrorsource:" "$VAULTCONF" && {
+    sed -i -e "/^[ \t]*client:.*/s//client: $HOSTNAME/" "$VAULTCONF"
+    sed -i -e "/^[ \t]*tree:.*/s!!tree: $MIRROR/$VAULT!" "$VAULTCONF"
+  }
+  # Add VAULT to Runall in master.conf (if missing):
+#  sed -n -e "/^[ \t]*Runall:/,/^[ \t]*$/p" "$MASTERCONF" | \
+#    grep -q "\b$VAULT\b" || \
+#      sed -i -e "/^[ \t]*Runall:/a\    $VAULT" "$MASTERCONF"
 }
 
 init() {
@@ -64,19 +68,15 @@ initvault() {
   hasimage "$VAULT" || dirvish --init --vault "$VAULT"
 }
 
-setupvault() {
-  local VAULT="$1"
-  local VAULTCONF="$BANK/$VAULT/dirvish/default.conf"
-  local CLIENT="/^[ \t]*client:.*/s//client: $HOSTNAME/"
-  local TREE="/^[ \t]*tree:.*/s!!tree: $MIRROR/$VAULT!"
-  mkdir -p "$BANK/$VAULT/dirvish"
-  # Create vault config file (if missing):
-  test -f "$VAULTCONF" || sed -e "$TREE" /xilab/default.conf > "$VAULTCONF"
-  sed -i -e "$CLIENT" "$VAULTCONF"
-  # Add VAULT to Runall in master.conf (if missing):
-  sed -n -e "/^[ \t]*Runall:/,/^[ \t]*$/p" "$MASTERCONF" | \
-    grep -q "\b$VAULT\b" || \
-      sed -i -e "/^[ \t]*Runall:/a\    $VAULT" "$MASTERCONF"
+runall() {
+  date
+  test -f "$MASTERCONF" && cp -f "$MASTERCONF" /etc/dirvish
+  eachvault setupvault
+  dirvish-runall
+  dirvish-expire
+  echo "Disk usage at $(hostname):"
+  df -h "$BANK"  # -h is not POSIX but works with BusyBox
+  eachvault dumplog
 }
 
 dumplog() {
@@ -89,18 +89,6 @@ dumplog() {
   test -f "$LOGFILE.gz" && zcat "$LOGFILE.gz"
 }
 
-keygen() {
-  echo "Creating SSH key pair in $SSHKEY"
-  mkdir -p "${SSHKEY%/*}" # create parent directory
-  ssh-keygen -t rsa -C root@$(hostname) -N "" -f "$SSHKEY"
-}
-
-# return 0 iff vault $1 has at least one image
-hasimage() {
-  local VAULT="$1"
-  (cd "$BANK/$VAULT" && ls */summary) > /dev/null 2>&1
-}
-
 # invoke `$1 VAULT` for each VAULT in BANK
 eachvault() {
   local OPTS="-mindepth 2 -maxdepth 2 -type d"
@@ -111,6 +99,12 @@ eachvault() {
   done
 }
 
+# return 0 iff vault $1 has at least one image
+hasimage() {
+  local VAULT="$1"
+  (cd "$BANK/$VAULT" && ls */summary) > /dev/null 2>&1
+}
+
 # print name of latest image in vault $1
 latestimage() {
   local VAULT="$1"
@@ -118,10 +112,16 @@ latestimage() {
   echo ${IMAGE%/}
 }
 
+keygen() {
+  echo "Creating SSH key pair in $SSHKEY"
+  mkdir -p "${SSHKEY%/*}" # create parent directory
+  ssh-keygen -t rsa -C root@$(hostname) -N "" -f "$SSHKEY"
+}
+
 # Run $* in a group and tee all stdout/stderr to $LOGFILE
 logged() {
-  { $*; echo "MAILTO=$MAILTO, MAILHUB=$MAILHUB"; } 2>&1 | tee "$LOGFILE"
-
+  { $*; } 2>&1 | tee "$LOGFILE"
+  echo "Mailing? MAILTO=$MAILTO, SSMTPCONF=$SSMTPCONF"
   test -n "$MAILTO" && {
     echo "From: root@$HOSTNAME"
     echo "Date: $(date -R)"
@@ -131,16 +131,21 @@ logged() {
   } | mailto "$MAILTO" || true # avoid non-zero return
 }
 
+# Try to send mail if SSMTPCONF exists
 mailto() {
   if test -f "$SSMTPCONF"
-  then cp -f "$SSMTPCONF" /etc/ssmtp/ssmtp.conf
-  else sed -i -f - /etc/ssmtp/ssmtp.conf << EOT
-/^[ \t]*mailhub[ \t]*=.*$/s//mailhub=${MAILHUB:-mail.example.com}/
-/^[ \t]*rewriteDomain[ \t]*=.*$/s//rewriteDomain=${MAILDOMAIN}/
-/^[ \t]*hostname[ \t]*=.*$/s//hostname=$(hostname)/
-EOT
+  then
+    cp -f "$SSMTPCONF" /etc/ssmtp/ssmtp.conf
+    ssmtp "$1"
+  else
+    cat
+#    sed -i -f - /etc/ssmtp/ssmtp.conf << EOT
+#/^[ \t]*mailhub[ \t]*=.*$/s//mailhub=${MAILHUB:-mail.example.com}/
+#/^[ \t]*rewriteDomain[ \t]*=.*$/s//rewriteDomain=${MAILDOMAIN}/
+#/^[ \t]*hostname[ \t]*=.*$/s//hostname=$(hostname)/
+#EOT
   fi
-  ssmtp "$1"
+#  ssmtp "$1"
 }
 
 while :; do

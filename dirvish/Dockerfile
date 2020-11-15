@@ -16,7 +16,7 @@ COPY xilab /xilab
 
 RUN cd /xilab && ./setup.sh
 
-ENV MAILTO="" MAILHUB="" MAILDOMAIN=""
+ENV MAILTO=""
 
 VOLUME ["/mirror", "/backup"]
 

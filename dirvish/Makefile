@@ -11,10 +11,10 @@ rebuild:
 push:
 	docker push ujr246/dirvish:latest
 
-setup init runall shell:
+setup init runall shell help:
 	docker run -it --rm \
 	  --mount "type=bind,source=$$(pwd)/test/mirror,target=/mirror" \
 	  --mount "type=bind,source=$$(pwd)/test/backup,target=/backup" \
 	  $(IMAGE) $@
 
-.PHONY: all build rebuild push setup init runall shell
+.PHONY: all build rebuild push setup init runall shell help

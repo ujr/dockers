@@ -1,5 +1,6 @@
 #!/bin/sh
-# Mirror client locally; used as pre-server script for dirvish
+# Mirror client locally befor archiving. Use as pre-server
+# script from the Dirvish per vault default.conf files.
 
 source /xilab/config.sh
 
@@ -16,19 +17,19 @@ IMAGE=$(basename "$IMAGEPATH")
 VAULTPATH=${IMAGEPATH%/$IMAGE}
 VAULT=$(basename "$VAULTPATH")
 BANK=$(dirname "$VAULTPATH")
+CLIENT="$1"
 
 mirror() {
   local VAULT="$1"
+  local CLIENT="$2"
   local TARGET="$MIRROR/$VAULT"
-  local CLIENT=$(head -1 $BANK/$VAULT/dirvish/client)
   local EXCLUDEFILE="$BANK/$VAULT/dirvish/exclude"
   local OPTS="$RSYNCOPTS"
   test -f "$EXCLUDEFILE" && OPTS="$OPTS --exclude-from=$EXCLUDEFILE"
   mkdir -p "$TARGET"
   echo "Mirroring $CLIENT to $TARGET"
+  echo "ACTION: rsync $OPTS -e $RSYNCRSH $CLIENT $TARGET"
   rsync $OPTS -e "$RSYNCRSH" "$CLIENT" "$TARGET"
 }
 
-echo "Mirror stage for BANK=$BANK, VAULT=$VAULT, IMAGE=$IMAGE"
-
-mirror "$VAULT"
+mirror "$VAULT" "$CLIENT"
