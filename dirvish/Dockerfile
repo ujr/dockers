@@ -1,6 +1,6 @@
 FROM alpine:latest
 RUN apk add --no-cache perl perl-utils make \
- rsync openssh-client openssh-keygen ssmtp \
+ rsync openssh-client openssh-keygen \
  && cpan install POSIX Getopt::Long Time::ParseDate Time::Period \
  && mkdir -p /backup /mirror /xilab
 
@@ -15,8 +15,6 @@ RUN apk add --no-cache tzdata \
 COPY xilab /xilab
 
 RUN cd /xilab && ./setup.sh
-
-ENV MAILTO=""
 
 VOLUME ["/mirror", "/backup"]
 

@@ -4,7 +4,6 @@ BANK="/backup"
 SSHKEY="$BANK/dirvish/identity"        # private key for SSH
 LOGFILE="$BANK/dirvish/latest.log"     # log from latest runall
 MASTERCONF="$BANK/dirvish/master.conf" # overrides /etc/dirvish/master.conf
-SSMTPCONF="$BANK/dirvish/ssmtp.conf"   # overrides /etc/ssmtp/ssmtp.conf
 MIRRORSCRIPT="$BANK/dirvish/mirror.sh" # Dirvish pre-server script
 
 RSYNCOPTS="-rltH --delete -pgo -D --numeric-ids" # --stats

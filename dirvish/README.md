@@ -27,7 +27,6 @@ backup system for Unix, Mac, Windows.
 /backup/dirvish/identity               (priv key for rsync/ssh)
 /backup/dirvish/master.conf           (copied to /etc/dirvish/)
 /backup/dirvish/mirror.sh     (pre-server script for mirroring)
-/backup/dirvish/ssmtp.conf              (copied to /etc/ssmtp/)
 /backup/VAULT/                         (snapshots for a client)
 /backup/VAULT/IMAGE/                 (archived client snapshot)
 /backup/VAULT/dirvish/default.conf              (client config)
@@ -48,7 +47,6 @@ Global config:
 ```text
 BACKUP/dirvish/identity               private key for rsync/ssh
 BACKUP/dirvish/master.conf                dirvish master config
-BACKUP/dirvish/ssmtp.conf         config for ssmtp(8), optional
 BACKUP/dirvish/mirror.sh              script to mirror a client
 ```
 
@@ -57,23 +55,17 @@ Place the private key in *BACKUP/dirvish/identity* and
 append the corresponding public key, *identity.pub*, to
 to the client's */root/.ssh/authorized_keys* file.
 
-For *master.conf* and *ssmtp.conf* consult the dirvish
-and ssmtp(8) man pages. These two files will be copied
-to their standard places whenever the container is called
+For *master.conf* consult the dirvish man pages. This file will
+be copied to its standard place whenever the container is called
 with the `runall` argument.
 
 The container, when invoked with the `setup` argument,
 will generate a key pair if the private key is not found.
-It will also provide default *master.conf* and *ssmtp.conf*
-files if they do not yet exist.
+It will also provide a default *master.conf* file and per
+vault *default.conf* files if any do not yet exist.
 
 The *mirror.sh* script may be changed if need be.
 It is invoked as a pre-server script by Dirvish.
-
-Mail notifications are only sent if the `MAILTO` env var
-is set and if the *ssmtp.conf* file is found. To set env
-vars in the container, add `-e NAME=VALUE` arguments to
-`docker run`.
 
 Docker generates host names for its containers. To override,
 use the `-h hostname` argument to `docker run`, for example,
@@ -124,11 +116,12 @@ It is easiest to use the container through the provided
 to match your setup! Then usage is as follows:
 
 ```sh
-dirvish.sh help    # show quick help and quit
-dirvish.sh setup   # generate ssh key and default config files
-dirvish.sh init    # create initial images for new vaults
-dirvish.sh runall  # backup all clients, expire old images
-dirvish.sh shell   # drop into an interactive shell
+dirvish.sh help     # show quick help and quit
+dirvish.sh setup    # generate ssh key and default config files
+dirvish.sh init [V] # do initial image for new vaults (or V)
+dirvish.sh backup V # do backup for vault V only
+dirvish.sh runall   # backup all clients, expire old images
+dirvish.sh shell    # drop into an interactive shell
 ```
 
 Run `setup` to help get started, and run `init` once after
@@ -141,10 +134,6 @@ it exits. Volumes are mapped with `--mount` but could also
 be mapped with the older `-v outer:inner` option. To use
 the container's shell, pass the `-it` options, but if you
 run the container from *cron* do *not* pass `-t`.
-
-For mail notification, pass the environment variable
-`MAILTO=root` (choose recipient) into the container
-(and make sure mail is configured -- see above).
 
 ### Creating an SSH key pair
 

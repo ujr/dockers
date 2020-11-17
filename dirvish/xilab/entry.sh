@@ -40,9 +40,6 @@ setup() {
 
   test -x "$MIRRORSCRIPT" || chmod a+x "$MIRRORSCRIPT"
 
-  local ssmtp="${SSMTPCONF%/*}/_${SSMTPCONF##*/}"
-  test -f "$ssmtp" || cp -f /xilab/ssmtp.conf "$ssmtp"
-
   eachvault setupvault
 }
 
@@ -56,7 +53,7 @@ setupvault() {
   grep -q "^pre-server:.*/mirror\.sh[ \t]" "$VAULTCONF" && {
     sed -i -e "/^[ \t]*client:.*/s//client: $HOSTNAME/" "$VAULTCONF"
     sed -i -e "/^[ \t]*tree:.*/s!!tree: $MIRROR/$VAULT!" "$VAULTCONF"
-  }
+  } || true # avoid error return
   # Add VAULT to Runall in master.conf (if missing):
 #  sed -n -e "/^[ \t]*Runall:/,/^[ \t]*$/p" "$MASTERCONF" | \
 #    grep -q "\b$VAULT\b" || \
@@ -82,7 +79,8 @@ initvault() {
 }
 
 runall() {
-  date
+  echo "Dirvish at $HOSTNAME"
+  echo "on $(date -R)"
   test -f "$MASTERCONF" && cp -f "$MASTERCONF" /etc/dirvish
   eachvault setupvault
   dirvish-runall
@@ -149,23 +147,6 @@ keygen() {
 # Run $* in a group and tee all stdout/stderr to $LOGFILE
 logged() {
   { $*; } 2>&1 | tee "$LOGFILE"
-  test -n "$MAILTO" && {
-    echo "From: root@$HOSTNAME"
-    echo "Date: $(date -R)"
-    echo "Subject: Dirvish at $HOSTNAME"
-    echo "" # empty line
-    cat "$LOGFILE"
-  } | mailto "$MAILTO" || true # avoid non-zero return
-}
-
-mailto() {
-  if test -f "$SSMTPCONF"
-  then
-    cp -f "$SSMTPCONF" /etc/ssmtp/ssmtp.conf
-    ssmtp "$1"
-  else
-    cat
-  fi
 }
 
 while :; do
