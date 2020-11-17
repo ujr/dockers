@@ -1,8 +1,8 @@
 #!/bin/sh
-# Mirror client locally befor archiving. Use as pre-server
+# Mirror client locally before archiving. Use as pre-server
 # script from the Dirvish per vault default.conf files.
 
-source /xilab/config.sh
+. "$(dirname $0)/config.sh"
 
 # Dirvish invokes its {pre,post}-{client,server} scripts with env vars:
 # DIRVISH_SERVER, DIRVISH_CLIENT, DIRVISH_SRC, DIRVISH_DEST, DIRVISH_IMAGE

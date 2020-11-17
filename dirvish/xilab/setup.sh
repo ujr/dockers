@@ -60,7 +60,7 @@ source config.sh
 echo "rsh: $RSYNCRSH" >> /xilab/master.conf
 
 # embed config.sh into scripts instead of sourcing:
-SED="/source.*xilab.*config.sh/ {#r config.sh#d#}"
+SED="/[ \t]*\.[ \t].*config.sh/ {#r config.sh#d#}"
 echo "$SED" | tr '#' '\n' | sed -i -f - mirror.sh
 echo "$SED" | tr '#' '\n' | sed -i -f - entry.sh
 # Install ssmtp(8) config:
