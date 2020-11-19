@@ -96,9 +96,8 @@ dumplog() {
   local LOGFILE="$BANK/$VAULT/$IMAGE/log"
   echo "" # blank line
   echo "## Log for $VAULT:$IMAGE"
-  # Note that zcat | (head;tail) does not work reliably because of input buffering!
-  test -f "$LOGFILE" && { cat "$LOGFILE" | head; echo "[...]"; cat "$LOGFILE" | tail; }
-  test -f "$LOGFILE.gz" && { zcat "$LOGFILE.gz" | head; echo "[...]"; zcat "$LOGFILE.gz" | tail; }
+  test -f "$LOGFILE" && { cat "$LOGFILE" | heil 9 15; }
+  test -f "$LOGFILE.gz" && { zcat "$LOGFILE.gz" | heil 9 15; }
 }
 
 # invoke `$1 VAULT` for each VAULT in BANK
@@ -142,6 +141,15 @@ keygen() {
   echo "Creating SSH key pair in $SSHKEY"
   mkdir -p "${SSHKEY%/*}" # create parent directory
   ssh-keygen -t rsa -C root@$(hostname) -N "" -f "$SSHKEY"
+}
+
+# print he(ad and ta)il of stdin to stdout
+heil() {
+  awk -v "M=$1" -v "N=$2" 'BEGIN { if(!M)M=9;if(!N)N=9; }
+  { if (NR <= M) print; else if (N > 0) tail[tp++ % N] = $0; }
+  END { if (NR > M+N && M+N > 0) print "[...]";
+  if (tp <= N) for(i = 0; i < tp; i++) print tail[i];
+  else for (i = tp%N; i < tp%N+N; i++) print tail[i%N]; }'
 }
 
 # Run $* in a group and tee all stdout/stderr to $LOGFILE
