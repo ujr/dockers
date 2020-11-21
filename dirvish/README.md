@@ -216,6 +216,31 @@ While at it, fix a minor bug in `dirvish-locate`, where
 `gzip` is instructed to uncompress file `index` if file
 `index.gz` exists.
 
+## Some rsync options
+
+```text
+-r         recurse into directories
+-l         copy symlinks as such
+-t         preserve modification times
+-p         preserve permissions
+-o         preserve owner
+-g         preserve group
+-D         preserve device (--devices) and special (--specials) files
+-H         preserve hard links
+--delete   delete extraneous files from dest dirs
+--numeric-ids  don't map uid/gid values by user/group name
+--partial  keep partial files (do not delete, can resume later)
+--progress show progress (bytes transferred, percent, time, etc.)
+--stats    give some file-transfer stats
+--timeout=secs  set I/O timeout in seconds (default: no timeout)
+-v         increase verbosity
+-P         means --partial and --progress; for long transfers
+-a         archive: means -rlptgoD (but not -H -A -X)
+```
+
+For details and authoritative information, see the **rsync**(1)
+manual page.
+
 ## Miscellaneous
 
 When writing shell functions, the closing brace must be on
@@ -240,10 +265,21 @@ options to **ssh** are useful in our context. By setting the
 latter to */dev/null* we could do without a known hosts file,
 but then the warning about an unknown host appears each time.
 
-The old rsync-dirvish-all script looked similar to the one below:
+## Historical Notes
+
+We started with ordianry Dirvish backups. On 2011-07-10
+we changed two a two-stage mirror+archive scheme. The
+reason for this modification was unreliable connectivity.
+
+- positive: rsync mirroring is essentially self-correcting
+- negative: dirvish images may be inconsistent
+- negative: non-standard setup
+
+We did the two-stage backups with a cron script that looked
+somehow like the one below:
 
 ```sh
-LOGFILE="/root/cron/backup/latest.log"
+LOGFILE=".../backup/latest.log"
 OPTS="-rltH --delete -pgo --stats -D --numeric-ids"
 HOST=`/bin/hostname`
 
@@ -255,13 +291,13 @@ test -f "$LOGFILE"   && mv "$LOGFILE"   "$LOGFILE.1"
 
 # Run all commands in a subshell so we can redirect output easily:
 {
-echo "** Mirroring seven-partial ..."
-rsync $OPTS --exclude-from=/backup/seven-partial/dirvish/exclude \
-      seven.xilab.ch:/ /mirror/seven-partial/
+echo "** Mirroring mine ..."
+rsync $OPTS --exclude-from=/backup/mine/dirvish/exclude \
+      mine.sample.ch:/ /mirror/mine/
 
-echo "** Mirroring lm2 ..."
-rsync $OPTS --exclude-from=/backup/lm2/dirvish/exclude \
-      lm2.ddns.xilab.ch:/backup/remote/crypt/ /mirror/lm2/
+echo "** Mirroring yours ..."
+rsync $OPTS --exclude-from=/backup/yours/dirvish/exclude \
+      yours.ddns.sample.ch:/backup/remote/crypt/ /mirror/yours/
 
 echo "** Archiving mirror states ..."
 /usr/sbin/dirvish-runall

@@ -1,4 +1,9 @@
 #!/bin/sh
+# Entrypoint script for Fossil container
+
+INDEXFILE="/fossil/index.html"
+SERVERCERT="/fossil/ssl/server.pem"
+LOGPIPE="/xilab/logpipe"
 
 showhelp() {
   cat << EOT
@@ -6,38 +11,50 @@ This is the entrypoint script for our fossil container.
 Usage: $0 command
 Commands:
   help      Show this help text and quit
-  init      Create self-signed cert and index.html (if not exist)
-  run       Run fossil server behind Lighttpd
+  setup     Create self-signed cert and index.html (if not exist)
+  start     Run fossil server behind Lighttpd
   makecert  Create (or overwrite) a self-signed cert for HTTPS
-  makeindex Create index.html from /fossil/*.fossil
+  makeindex Create index.html from FOSSIL/*.fossil
   shell     Drop into an interactive shell
 EOT
 }
 
-INDEXFILE="/fossil/index.html"
-SERVERCERT="/fossil/ssl/server.pem"
-LOGPIPE="/xilab/logpipe"
-
-setup() {
-  test -f $SERVERCERT || makecert
-  test -f $INDEXFILE || cp /xilab/index.html $INDEXFILE
-  alias ll="ls -l"
+usage() {
+  echo "$0: $*"; showhelp; exit 1;
 }
 
-runall() {
-  test -p $LOGPIPE || mkfifo -m 660 $LOGPIPE
-  chmod 660 $LOGPIPE
-  chown root:lighttpd $LOGPIPE
+setup() {
+  if test -f "$SERVERCERT"
+  then echo "Keeping $SERVERCERT"
+  else makecert
+  fi
+
+  if test -f "$INDEXFILE"
+  then echo "Keeping $INDEXFILE"
+  else cp /xilab/index.html "$INDEXFILE"
+  fi
+}
+
+start() {
+  mkdir -p "${LOGPIPE%/*}" # create parent dirs
+  test -p "$LOGPIPE" || mkfifo -m 660 "$LOGPIPE"
+  chmod 660 "$LOGPIPE"
+  chown root:lighttpd "$LOGPIPE"
   trap "killall lighttpd cat" INT TERM QUIT
-  cat <> $LOGPIPE 1>&2 &
+  cat <> "$LOGPIPE" 1>&2 &
   lighttpd -f /xilab/lighttpd.conf
-  fossil server /fossil --scgi --port 8080 --files '*.html,*.css,*.js' --notfound index.html
+  fossil server --port 8080 --repolist --notfound / --files '*favicon.ico' /fossil
   killall lighttpd cat
 }
 
+server() {
+  # Run fossil server directly, not behind a proxy; no https in this case!
+  fossil server --port 80 --repolist --notfound / --files '/favicon.ico' /fossil
+}
+
 makecert() {
-  TEMP=$(mktemp)
-  cat > $TEMP << EOT
+  TEMP="$(mktemp)"
+  cat > "$TEMP" << EOT
 [dn]
 CN=localhost
 [req]
@@ -47,16 +64,17 @@ subjectAltName=DNS:localhost
 keyUsage=digitalSignature
 extendedKeyUsage=serverAuth
 EOT
-  mkdir -p ${SERVERCERT%/*.pem}
-  openssl req -new -x509 -keyout $SERVERCERT -out $SERVERCERT \
+  mkdir -p "${SERVERCERT%/*}" # create parent directories
+  openssl req -new -x509 -keyout "$SERVERCERT" -out "$SERVERCERT" \
     -newkey rsa:2048 -nodes -days 365 -subj '/CN=localhost' \
     -extensions EXT -config $TEMP
-  chmod 400 $SERVERCERT
-  rm -f $TEMP
+  chmod 400 "$SERVERCERT"
+  rm -f "$TEMP"
 }
 
 makeindex() {
-  cat > $INDEXFILE << EOT
+  mkdir -p "${INDEXFILE%/*}"
+  cat > "$INDEXFILE" << EOT
 <!DOCTYPE html>
 <html>
 <meta charset="utf-8"/>
@@ -67,11 +85,11 @@ makeindex() {
 EOT
   ls /fossil/*.fossil | while read NAME
   do
-    NAME=${NAME#/fossil/}
-    NAME=${NAME%.fossil}
-    echo "<li><a href=\"/fossil/$NAME\">$NAME.fossil</a></li>" >> $INDEXFILE
+    NAME="${NAME#/fossil/}"
+    NAME="${NAME%.fossil}"
+    echo "<li><a href=\"/fossil/$NAME\">$NAME.fossil</a></li>" >> "$INDEXFILE"
   done
-  cat >> $INDEXFILE << EOT
+  cat >> "$INDEXFILE" << EOT
 </ul>
 </html>
 EOT
@@ -89,9 +107,7 @@ while :; do
       break
     ;;
     --*)
-      echo "$0: Invalid option: $1"
-      showhelp
-      exit 1
+      usage "Invalid option: $1"
     ;;
     *)
       break
@@ -100,19 +116,16 @@ while :; do
 done
 
 CMD=$1
-test -z "$CMD" && CMD=help
-shift
-
-if [ -n "$1" ]; then
-  echo "$0: Too many arguments"
-  showhelp
-  exit 1
+if test -z "$CMD"
+then CMD=help
+else shift
 fi
 
+test -n "$1" && usage "Too many arguments"
+
 case $CMD in
-  init)
-    test -f "$INDEXFILE" || makeindex
-    test -f "$SERVERCERT" || makecert
+  setup)
+    setup
   ;;
   makecert)
     makecert
@@ -122,17 +135,18 @@ case $CMD in
   ;;
   run|launch|start)
     setup
-    runall
+    start
+  ;;
+  server)
+    server
   ;;
   shell)
     setup
-    /bin/sh
+    exec /bin/sh
   ;;
   help)
     showhelp
   ;;
   *)
-    echo "$0: Invalid command: $CMD"
-    showhelp
-    exit 1
+    usage "Invalid command: $CMD"
 esac

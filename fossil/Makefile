@@ -4,14 +4,16 @@ all: build
 
 build:
 	docker build -t $(IMAGE) .
-	#docker build -t $(IMAGE) --no-cache .
 
-shell:
-	docker run -it --rm -p 8080:80 -p 8443:443 \
-	  --mount "type=bind,source=$$(pwd)/test/fossil,target=/fossil" \
-	  $(IMAGE) shell
+rebuild:
+	docker build -t $(IMAGE) --no-cache .
 
-run:
-	docker run --rm -p 8080:80 -p 8443:443 \
+push:
+	docker push ujr246/fossil:latest
+
+start shell help server:
+	docker run -it --rm -p 9080:80 -p 9443:443 -p 8080:8080 \
 	  --mount "type=bind,source=$$(pwd)/test/fossil,target=/fossil" \
-	  $(IMAGE) run
+	  $(IMAGE) $@
+
+.PHONY: all build rebuild start shell help

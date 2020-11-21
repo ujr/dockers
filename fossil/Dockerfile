@@ -16,7 +16,7 @@ RUN apk add --no-cache lighttpd openssl
 COPY --from=builder /fossil-src/fossil /usr/local/bin/
 COPY xilab /xilab
 
-RUN apk add --no-cache mandoc man-pages
+#RUN apk add --no-cache mandoc man-pages
 
 VOLUME ["/fossil"]
 EXPOSE 80 443
