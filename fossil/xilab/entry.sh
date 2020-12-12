@@ -35,16 +35,36 @@ setup() {
   fi
 }
 
+#start() {
+#  mkdir -p "${LOGPIPE%/*}" # create parent dirs
+#  test -p "$LOGPIPE" || mkfifo -m 660 "$LOGPIPE"
+#  chmod 660 "$LOGPIPE"
+#  chown root:lighttpd "$LOGPIPE"
+#  trap "killall lighttpd cat" INT TERM QUIT
+#  cat <> "$LOGPIPE" 1>&2 &
+#  lighttpd -f /xilab/lighttpd.conf
+#  fossil server --port 8080 --repolist --notfound / --files '*favicon.ico' /fossil
+#  killall lighttpd cat
+#}
+
 start() {
-  mkdir -p "${LOGPIPE%/*}" # create parent dirs
-  test -p "$LOGPIPE" || mkfifo -m 660 "$LOGPIPE"
-  chmod 660 "$LOGPIPE"
-  chown root:lighttpd "$LOGPIPE"
-  trap "killall lighttpd cat" INT TERM QUIT
-  cat <> "$LOGPIPE" 1>&2 &
-  lighttpd -f /xilab/lighttpd.conf
-  fossil server --port 8080 --repolist --notfound / --files '*favicon.ico' /fossil
-  killall lighttpd cat
+  echo "Starting stunnel"
+  touch /var/log/stunnel.log
+  chown root:stunnel /var/log/stunnel.log
+  chmod 664 /var/log/stunnel.log
+  # Setup chroot jail for fossil (requires root):
+  mkdir -p /fossil/dev
+  cp -af /dev/null /fossil/dev
+  cp -af /dev/urandom /fossil/dev
+  # TODO mount proc -- though it seems to work without?!?
+  # A small httpd on port 80 to redirect to https: does not
+  # work, because file must exists before -auth can redirect
+  #trap "killall althttpd" INT TERM QUIT EXIT
+  #althttpd --root /xilab/www --user nobody --port 80 &
+  trap "killall -q fossil" INT TERM QUIT EXIT
+  fossil server --port 80 --repolist --notfound / --files '*favicon.ico' /fossil &
+  # Proxy to talk https and invoke Fossil:
+  stunnel /xilab/stunnel.conf
 }
 
 server() {

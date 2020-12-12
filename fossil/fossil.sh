@@ -9,6 +9,6 @@ FOSSILDIR=/path/to/fossils
 OPTS=""
 test "$1" = "shell" && OPTS="$OPTS -it"
 
-docker run --rm $OPTS -p 80:80 -p 443:443 -p 8080:8080 \
+docker run --rm $OPTS -p 80:80 -p 443:443 \
   --mount "type=bind,source=$FOSSILDIR,target=/fossil" \
   fossil $*

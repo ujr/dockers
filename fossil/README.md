@@ -10,11 +10,17 @@ It is intended for private networks and not secured
 in any way. For public fossil hosting consider using
 [Chisel Fossil SCM Hosting][chisel].
 
-You still may provide a server certificate to enable
-HTTPS so that passwords are not transmitted in clear.
-[Lighttpd][lighttpd] will be used as a reverse proxy
-that terminates HTTPS and communicates with fossil
-via [SCGI][scgi].
+You still want to use HTTPS so that passwords are not
+transmitted in clear. Since Fossil itself only speaks
+plain HTTP the container will employ a reverse proxy
+to terminate HTTPS.
+
+After experiments with [Lighttpd][lighttpd] in front
+of Fossil's [SCGI][scgi] interface, I switched to
+[stunnel][stunnel] and have it `fossil http` for each
+incoming request. This is will not achieve the best
+possible performance, but it is still more than enough
+and very simple.
 
 [Alpine Linux][alpine] serves as the base system.
 
@@ -22,7 +28,7 @@ via [SCGI][scgi].
 
 ```sh
 docker run -it --rm -p 80:80 -p 443:443 -v /repos:/fossil fossil shell
-docker run --rm -p 80:80 -p 443:443 -v /repos:/fossil fossil run
+docker run --rm -p 80:80 -p 443:443 -v /repos:/fossil fossil start
 docker run --rm fossil help
 ```
 
@@ -43,6 +49,10 @@ Fossil's documentation in
 contains info on building a static executable suitable
 for running in a Docker container.
 
+## Using stunnel
+
+See the [stunnel(8) manual page][stunnel.8]
+
 ## Setting up Lighttpd
 
 Lighttpd can check its config file:  
@@ -61,3 +71,4 @@ saying `server.errorlog = "/path/to/pipe"`.
 [lighttpd]: https://www.lighttpd.net/
 [scgi]: https://en.wikipedia.org/wiki/Simple_Common_Gateway_Interface
 [alpine]: https://alpinelinux.org/
+[stunnel.8]: https://www.stunnel.org/static/stunnel.html
