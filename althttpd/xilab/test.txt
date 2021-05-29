@@ -1,0 +1,3 @@
+Hello static content!
+Sincerely,
+your plain text file
