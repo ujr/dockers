@@ -16,15 +16,15 @@ shell:
 	  --volume="/etc/group:/etc/group:ro" \
 	  --volume="/etc/passwd:/etc/passwd:ro" \
 	  --volume="/etc/shadow:/etc/shadow:ro" \
-	  --volume="$$(pwd)/www:/www:rw" \
+	  --volume="$$(pwd)/www:/home/www:rw" \
 	  $(IMAGE) /bin/sh
 
-run start help:
+setup run start help:
 	docker run -it --rm -p 443:443 -p 8080:80 \
 	  --volume="/etc/group:/etc/group:ro" \
 	  --volume="/etc/passwd:/etc/passwd:ro" \
 	  --volume="/etc/shadow:/etc/shadow:ro" \
-	  --volume="$$(pwd)/www:/www:rw" \
+	  --volume="$$(pwd)/www:/home/www:rw" \
 	  $(IMAGE) /xilab/entry.sh $@
 
 .PHONY: all build rebuild push run start shell help

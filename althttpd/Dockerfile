@@ -26,7 +26,7 @@ COPY xilab /xilab
 
 #RUN apk add --no-cache mandoc man-pages
 
-VOLUME ["/www"]
+VOLUME ["/home/www"]
 EXPOSE 80 443
 
 #ENTRYPOINT ["/bin/sh", "-c"]

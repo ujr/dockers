@@ -1,4 +1,4 @@
 #!/usr/local/bin/fossil
-directory: /www/fossils
-errorlog: /www/logs/fossilerr.log
+directory: /home/www/fossils
+errorlog: /home/www/logs/fossilerr.log
 repolist

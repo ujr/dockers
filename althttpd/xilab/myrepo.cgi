@@ -1,2 +1,2 @@
 #!/usr/local/bin/fossil
-repository: /www/fossils/myrepo.fossil
+repository: /home/www/fossils/myrepo.fossil

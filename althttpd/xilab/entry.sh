@@ -1,14 +1,16 @@
 #!/bin/sh
 # Entrypoint script for althttpd container
 
-SERVERCERT=/www/ssl/server.pem
-STUNNELCONF=/www/ssl/stunnel.conf
-DEFAULTSITE=/www/default.website
+SERVERCERT=/home/www/ssl/server.pem
+STUNNELCONF=/home/www/ssl/stunnel.conf
+DEFAULTSITE=/home/www/default.website
+SAMPLEREPO=/home/www/fossils/myrepo.fossil
+LOGDIRECTORY=/home/www/logs
 
-# Get user:group from /www/.owner or /www directory
-if test -f /www/.owner
-then OWNER=$(ls -l /www/.owner | awk '{print $3 ":" $4}')
-else OWNER=$(ls -ld /www | awk '{print $3 ":" $4}')
+# Get user:group from /home/www/.owner or /home/www directory
+if test -f /home/www/.owner
+then OWNER=$(ls -l /home/www/.owner | awk '{print $3 ":" $4}')
+else OWNER=$(ls -ld /home/www | awk '{print $3 ":" $4}')
 fi
 
 USER=${OWNER%:*}
@@ -55,53 +57,63 @@ makesite() {
   chown $USER:$GROUP "$DEFAULTSITE"
 }
 
-if test ! -f "$SERVERCERT"
-then
-  echo "Creating self-signed cert in $SERVERCERT"
-  makecert
-fi
+setup() {
+  if test ! -f "$SERVERCERT"
+  then
+    echo "Creating self-signed cert in $SERVERCERT"
+    makecert
+  fi
 
-if test ! -f "$DEFAULTSITE/index.html"
-then
-  echo "Creating default website"
-  makesite
-fi
+  if test ! -f "$DEFAULTSITE/index.html"
+  then
+    echo "Creating default website"
+    makesite
+  fi
 
-TESTREPO=/www/fossils/myrepo.fossil
-mkdir -p -m 775 "${TESTREPO%/*}"
-chgrp $GROUP "${TESTREPO%/*}"
+  mkdir -p -m 775 "${SAMPLEREPO%/*}"
+  chgrp $GROUP "${SAMPLEREPO%/*}"
 
-if test ! -f "$TESTREPO"
-then
-  echo "Creating test repository $TESTREPO"
-  fossil init --admin-user $USER "$TESTREPO"
-  chown $USER:$GROUP "$TESTREPO"
-  chmod 664 "$TESTREPO"
-fi
+  if test ! -f "$SAMPLEREPO"
+  then
+    echo "Creating test repository $SAMPLEREPO"
+    fossil init --admin-user $USER "$SAMPLEREPO"
+    chown $USER:$GROUP "$SAMPLEREPO"
+    chmod 664 "$SAMPLEREPO"
+  fi
 
-mkdir -p -m 775 /www/logs
-chgrp $GROUP /www/logs
+  mkdir -p -m 775 "$LOGDIRECTORY"
+  chgrp $GROUP "$LOGDIRECTORY"
+}
 
 ## Generate stunnel config
 mkdir -p -m 755 "${STUNNELCONF%/*}"
+echo "Creating stunnel config in $STUNNELCONF"
 sed -e "s/XUSER/$USER/g" -e "s/XGROUP/$GROUP/g" /xilab/stunnel.conf > "$STUNNELCONF"
+chmod 444 "$STUNNELCONF"  # make it read-only
 
 CMD=$1
 test -z "$CMD" && CMD=help || shift
 case $CMD in
+  setup)
+    setup
+  ;;
   shell)
     exec /bin/sh
   ;;
   help|info)
-    echo "Usage: $0 run|shell|help"
+    echo "Usage: $0 setup|run|shell|help"
+    echo "  setup: create default site and cert"
+    echo "  run:   start https server (implies setup)"
+    echo "  shell: drop into an interactive shell"
     echo "See the stunnel conf in $STUNNELCONF"
     echo "See the accompanying README file"
   ;;
   run|start)
+    setup
     stunnel "$STUNNELCONF"
   ;;
   *)
     echo "Invalid command: $CMD"
-    echo "Usage: $0 run|shell|help"
+    echo "Usage: $0 setup|run|shell|help"
     exit 1
 esac
