@@ -30,4 +30,5 @@ VOLUME ["/home/www"]
 EXPOSE 80 443
 
 #ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["/xilab/entry.sh"]
+ENTRYPOINT ["/xilab/entry.sh"]
+CMD ["shell"]

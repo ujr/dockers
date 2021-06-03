@@ -13,6 +13,12 @@ then OWNER=$(ls -l /home/www/.owner | awk '{print $3 ":" $4}')
 else OWNER=$(ls -ld /home/www | awk '{print $3 ":" $4}')
 fi
 
+export OWNER
+export SERVERCERT STUNNELCONF
+export DEFAULTSITE LOGDIRECTORY
+
+test "$1" = "shell" && exec /bin/sh
+
 USER=${OWNER%:*}
 GROUP=${OWNER#*:}
 
@@ -102,8 +108,8 @@ case $CMD in
   ;;
   help|info)
     echo "Usage: $0 setup|run|shell|help"
-    echo "  setup: create default site and cert"
-    echo "  run:   start https server (implies setup)"
+    echo "  setup: create default site and cert (if missing)"
+    echo "  run:   start https server (implies setup) (Ctrl+C to stop)"
     echo "  shell: drop into an interactive shell"
     echo "See the stunnel conf in $STUNNELCONF"
     echo "See the accompanying README file"

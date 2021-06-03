@@ -1,0 +1,14 @@
+services:
+  httpd:
+    image: althttpd
+    build: .
+    ports:
+      - "443:443"
+    volumes:
+      - "/etc/group:/etc/group:ro"
+      - "/etc/passwd:/etc/passwd:ro"
+      - "/etc/shadow:/etc/shadow:ro"
+      - "$PWD/www:/home/www:rw"
+    entrypoint: "/xilab/entry.sh"
+    command: "run"
+

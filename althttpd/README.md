@@ -6,11 +6,11 @@ run **fossil** through CGI to serve fossil repositories.
 
 [Althttpd][althttpd] is a webserver by Richard Hipp (author
 of SQLite and Fossil). It runs the sqlite.org website since
-2004, is minimally simple, and ships as a single C source file
+2004, is maximally simple, and ships as a single C source file
 ([local copy](./althttpd.c)).
 
 [Fossil][fossil] is a distributed software configuration
-management software similar to Git, but ships as a single
+management (SCM) tool similar to Git, but ships as a single
 executable, and includes a wiki and a ticket system.
 
 [Alpine Linux][alpine] serves as the base system.
@@ -21,14 +21,20 @@ using [Chisel Fossil SCM Hosting][chisel].
 
 ## Using the container
 
-A *Makefile* comes with the container that helps with
-invoking the container. You want to adjust the path to
-your websites, which defaults to the *./www* folder.
+Invoke the `setup` command to create a default web site
+and a self-signed certificate (only those items that do
+not yet exist). Invoke the `run` command to start the
+HTTPS server (this always does an implied `setup`);
+hit Ctrl-C to stop the server.
+Invoke `shell` to drop into an interactive shell.
 
-Invoke `make setup` to create a default web site and
-a self-signed server certificate, invoke `make run`
-to start the HTTPS server (hit Ctrl-C to stop), and
-`make shell` to drop into an interactive shell.
+Use the *althttpd.sh* script or the provided *Makefile*
+to invoke these commands. Alternatively, use docker-compose
+(a sample docker compose file comes with this project).
+
+In each case check and adjust the path to your websites,
+which defaults to the *./www* folder. You may also want
+to adjust the TCP port, which defaults to 443.
 
 The https server runs as the user who owns the mapped
 *www* directory. To change that, create the file
@@ -65,11 +71,9 @@ fossils/             your fossil repos (just a suggestion)
 
 Within the container is the script */xilab/entry.sh*,
 which serves as the entry point into the container.
-Invoke it with argument `shell` to drop into an
-interactive shell, with `setup` to create a default
-web site and a self-signed certificate (only those
-things that do not yet exist), and with `run` to start
-the HTTPS server (this also invokes `setup` implicitly).
+It accepts the parameters `setup`, `run`, `shell`,
+(as explained above) and `help` (to print a short
+reminder to standard output).
 
 ## About althttpd
 
