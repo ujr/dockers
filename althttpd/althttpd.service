@@ -1,0 +1,21 @@
+[Unit]
+Description=stunnel+althttpd+fossil server container
+Documentation=http://github.com/ujr/dockers
+After=network.target
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/docker run --rm --detach \
+  --publish=443:443 \
+  --volume="/etc/group:/etc/group:ro" \
+  --volume="/etc/passwd:/etc/passwd:ro" \
+  --volume="/etc/shadow:/etc/shadow:ro" \
+  --volume="/home/www:/home/www:rw" \
+  --name=althttpd althttpd
+ExecStop=-/usr/bin/docker stop althttpd
+
+[Install]
+WantedBy=multi-user.target

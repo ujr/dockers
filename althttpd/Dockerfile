@@ -31,4 +31,4 @@ EXPOSE 80 443
 
 #ENTRYPOINT ["/bin/sh", "-c"]
 ENTRYPOINT ["/xilab/entry.sh"]
-CMD ["shell"]
+#CMD ["run"]

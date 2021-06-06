@@ -1,19 +1,22 @@
 #!/bin/sh
-# Entrypoint script for althttpd container
+# Entrypoint script for althttpd+fossil container
 
-SERVERCERT=/home/www/ssl/server.pem
-STUNNELCONF=/home/www/ssl/stunnel.conf
-DEFAULTSITE=/home/www/default.website
-SAMPLEREPO=/home/www/fossils/myrepo.fossil
-LOGDIRECTORY=/home/www/logs
+WEBROOT=/home/www
+SERVERCERT="$WEBROOT/ssl/server.pem"
+STUNNELCONF="$WEBROOT/ssl/stunnel.conf"
+DEFAULTSITE="$WEBROOT/default.website"
+SAMPLEREPO="$WEBROOT/fossils/myrepo.fossil"
+LOGDIRECTORY="$WEBROOT/logs"
+
+test -d "$WEBROOT" || { echo "Web root $WEBROOT missing, giving up"; exit 1; }
 
 # Get user:group from /home/www/.owner or /home/www directory
 if test -f /home/www/.owner
-then OWNER=$(ls -l /home/www/.owner | awk '{print $3 ":" $4}')
-else OWNER=$(ls -ld /home/www | awk '{print $3 ":" $4}')
+then OWNER=$(ls -l "$WEBROOT/.owner" | awk '{print $3 ":" $4}')
+else OWNER=$(ls -ld "$WEBROOT" | awk '{print $3 ":" $4}')
 fi
 
-export OWNER
+export OWNER WEBROOT
 export SERVERCERT STUNNELCONF
 export DEFAULTSITE LOGDIRECTORY
 
@@ -22,10 +25,15 @@ test "$1" = "shell" && exec /bin/sh
 USER=${OWNER%:*}
 GROUP=${OWNER#*:}
 
-STUNNEL=`which stunnel` && echo "Found $STUNNEL" || echo "stunnel not found"
-ALTHTTPD=`which althttpd` && echo "Found $ALTHTTPD" || echo "althttpd not found"
-FOSSIL=`which fossil` && echo "Found $FOSSIL" || echo "fossil not found"
 echo "Assuming $USER:$GROUP for default files and httpd"
+
+STUNNELBIN=/usr/bin/stunnel
+ALTHTTPDBIN=/usr/local/bin/althttpd
+FOSSILBIN=/usr/local/bin/fossil
+
+test -x "$STUNNELBIN" || echo "$STUNNELBIN executable missing"
+test -x "$ALTHTTPDBIN" || echo "$ALTHTTPDBIN executable missing"
+test -x "$FOSSILBIN" || echo "$FOSSILBIN executable missing"
 
 makecert() {
   TEMP="$(mktemp)"
@@ -87,18 +95,30 @@ setup() {
     chmod 664 "$SAMPLEREPO"
   fi
 
+  mkdir -p -m 755 "$WEBROOT/bin"
+  cp "$FOSSILBIN" "$WEBROOT/bin"
+  cp "$ALTHTTPDBIN" "$WEBROOT/bin"
+
   mkdir -p -m 775 "$LOGDIRECTORY"
   chgrp $GROUP "$LOGDIRECTORY"
+
+  echo "Creating stunnel config in $STUNNELCONF"
+  mkdir -p -m 755 "${STUNNELCONF%/*}"
+  sed -e "s/XUSER/$USER/g" -e "s/XGROUP/$GROUP/g" /xilab/stunnel.conf > "$STUNNELCONF"
+  chmod 444 "$STUNNELCONF"  # make it read-only
 }
 
-## Generate stunnel config
-mkdir -p -m 755 "${STUNNELCONF%/*}"
-echo "Creating stunnel config in $STUNNELCONF"
-sed -e "s/XUSER/$USER/g" -e "s/XGROUP/$GROUP/g" /xilab/stunnel.conf > "$STUNNELCONF"
-chmod 444 "$STUNNELCONF"  # make it read-only
+showhelp() {
+  echo "Usage: $0 setup|run|shell|help"
+  echo "  setup: create default site and cert (if missing)"
+  echo "  run:   start https server (implies setup)"
+  echo "  shell: drop into an interactive shell"
+  echo "See the stunnel conf in $STUNNELCONF"
+  echo "See the accompanying README file"
+}
 
 CMD=$1
-test -z "$CMD" && CMD=help || shift
+test -z "$CMD" && CMD=run || shift
 case $CMD in
   setup)
     setup
@@ -107,19 +127,14 @@ case $CMD in
     exec /bin/sh
   ;;
   help|info)
-    echo "Usage: $0 setup|run|shell|help"
-    echo "  setup: create default site and cert (if missing)"
-    echo "  run:   start https server (implies setup) (Ctrl+C to stop)"
-    echo "  shell: drop into an interactive shell"
-    echo "See the stunnel conf in $STUNNELCONF"
-    echo "See the accompanying README file"
+    showhelp
   ;;
   run|start)
     setup
-    stunnel "$STUNNELCONF"
+    exec stunnel "$STUNNELCONF"
   ;;
   *)
-    echo "Invalid command: $CMD"
-    echo "Usage: $0 setup|run|shell|help"
+    echo "$0: invalid command: $CMD"
+    showhelp
     exit 1
 esac

@@ -243,6 +243,12 @@ manual page.
 
 ## Miscellaneous
 
+Use `--whole-file` if the network is faster than the disk!
+This option is implied if Dirvish is used for local copies.
+It is passed to rsync and turns off the rsync incremental
+update algorithm. For good performance, use a non-journalling
+filesystem for the vaults!
+
 When writing shell functions, the closing brace must be on
 its own line or follow a control operator; otherwise it is
 considered another command argument. This is equally true

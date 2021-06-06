@@ -6,8 +6,7 @@ run **fossil** through CGI to serve fossil repositories.
 
 [Althttpd][althttpd] is a webserver by Richard Hipp (author
 of SQLite and Fossil). It runs the sqlite.org website since
-2004, is maximally simple, and ships as a single C source file
-([local copy](./althttpd.c)).
+2004, is maximally simple, and ships as a single C source file.
 
 [Fossil][fossil] is a distributed software configuration
 management (SCM) tool similar to Git, but ships as a single
@@ -24,26 +23,27 @@ using [Chisel Fossil SCM Hosting][chisel].
 Invoke the `setup` command to create a default web site
 and a self-signed certificate (only those items that do
 not yet exist). Invoke the `run` command to start the
-HTTPS server (this always does an implied `setup`);
-hit Ctrl-C to stop the server.
+HTTPS server (this always does an implied `setup`); hit
+Ctrl-C to stop the server; `run` is the default command.
 Invoke `shell` to drop into an interactive shell.
 
-Use the *althttpd.sh* script or the provided *Makefile*
-to invoke these commands. Alternatively, use docker-compose
-(a sample docker compose file comes with this project).
+The provided *Makefile* shows how to invoke these commands.
+It also provides `start` and `stop` targets that show how
+the container can be started as a service in the background.
+The provided unit file *althttpd.service* shows one way the
+container can be used from systemd.
 
-In each case check and adjust the path to your websites,
-which defaults to the *./www* folder. You may also want
-to adjust the TCP port, which defaults to 443.
+In each case **check and adjust** the path to your websites!
+You may also want to adjust the TCP port, which defaults to 443.
 
 The https server runs as the user who owns the mapped
 *www* directory. To change that, create the file
 *www/.owner* and the https server will run as this file's
 owner and group. For reference, the stunnel config file
-can be found in *./www/ssl/stunnel.conf* (read-only).
+can be found in *www/ssl/stunnel.conf* (read-only).
 
-The https server (stunnel) expects a server certificate
-in the file *./www/ssl/server.pem*. If this file is missing,
+The https server (stunnel) expects a server certificate and
+key in the file *www/ssl/server.pem*. If this file is missing,
 `setup` creates a self-signed certificate in this place.
 
 Refer to the althttpd documentation about virtual hosts,
@@ -54,6 +54,7 @@ looks like this:
 
 ```text
 .owner               run althttps as uid:gid of this file, if present
+bin/                 location of the althttpd and fossil executables
 default.website/     the default site (if no other .website matches)
   index.html         created by setup, if mising
   test.txt           files are served as static content
@@ -69,31 +70,45 @@ fossils/             your fossil repos (just a suggestion)
   myrepo.fossil      created by setup as an example
 ```
 
-Within the container is the script */xilab/entry.sh*,
-which serves as the entry point into the container.
-It accepts the parameters `setup`, `run`, `shell`,
-(as explained above) and `help` (to print a short
-reminder to standard output).
+Within the container is the script */xilab/entry.sh*, which
+serves as the entry point into the container. It accepts
+the parameters `setup`, `run`, `shell` (as explained above)
+and `help` (to print a short reminder to standard output).
 
-## About althttpd
+## Use with systemd
 
-Althttpd comes as a single source file, *althttpd.c*,
-and depends only on the Standard C Library. To build:
+An example sytemd unit file is provided with the project.
+
+1. **check and fix** the paths in the unit file
+2. copy it into the */etc/systemd/system/* directory
+3. make systemd reload all unit files
+
+The following commands may be useful:
+
+- `sudo systemctl daemon-reload` — reload unit files
+- `sudo systemctl start althttpd` — start the container
+- `sudo systemctl stop althttpd` — stop the container
+- `systemctl status althttpd` — see systemd status
+- `docker ps` — see running docker containers
+- `sudo systemctl enable althttpd` — enable boot time launch
+- `sudo systemctl disable althttpd` — disable boot time launch
+
+You may have to configure your firewall to allow connections.
+For CentOS, the following commands should be useful:
 
 ```sh
-gcc -static -Os -o /usr/bin/althttpd althttpd.c
+sudo firewall-cmd --add-service http [--permanent]
+sudo firewall-cmd --add-service https [--permanent]
+sudo firewall-cmd --list-services
 ```
 
-Althttpd has no config file. It is controlled through
-command line options. Note that `--root` must be an
-absolute path (empirical).
-
-See the [althttpd documentation][althttpd] for details.
+## Miscellaneous Notes
 
 See the [stunnel(8) manual page][stunnel.8] for stunnel
 configuration and operation.
 
-## About fossil
+See separate [notes on althttpd](doc/althttpd.md) for how
+to compile and use this web server.
 
 Alpine has no package for fossil. Instead use **wget**
 to download and **tar** to unpack the source (both tools
